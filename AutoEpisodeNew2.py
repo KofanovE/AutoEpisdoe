@@ -34,6 +34,7 @@ class Administration:
         self.current_date = datetime.now()
         self.dead_time = self.current_date - timedelta(20)
         self.exit_flag = False
+        self.fast = False # Флаг уменьшает время ожидания клакабельности єлемента с 60 до 10 секунд
 
 
     def download_data(self):
@@ -82,7 +83,11 @@ class Administration:
 
     def click_element(self, element):
         self.check_exit_program()
-        WebDriverWait(self.driver, 60).until(EC.element_to_be_clickable((By.CSS_SELECTOR, element)))
+        if self.fast:
+            WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, element)))
+        else:
+            WebDriverWait(self.driver, 60).until(EC.element_to_be_clickable((By.CSS_SELECTOR, element)))
+        self.fast = False
         self.check_exit_program()
         btn = self.driver.find_element(By.CSS_SELECTOR, element)
         time.sleep(1)
@@ -104,8 +109,14 @@ class Administration:
 
 
 
+
     def reset_element(self, element):
-        pass
+        self.check_exit_program()
+        WebDriverWait(self.driver, 60).until(EC.element_to_be_clickable((By.CSS_SELECTOR, element)))
+        self.check_exit_program()
+        line = self.driver.find_element(By.CSS_SELECTOR, element)
+        line.click()
+        line.clear()
 
 
 
@@ -127,6 +138,7 @@ class Doctor:
         self.num = 0    # номер пациента в списке пациентов
         self.output = self.profession + ".xlsx"
         self.adm = adm
+
 
 
 
@@ -163,7 +175,8 @@ class Doctor:
 
     def change_patient(self):
         "Подготовка к смене пациента, если не удалось его авторизировать"
-        self.adm.click_element('.tooltip-restrictions>li:nth-child(4)>a:nth-child(1)>span:nth-child(1)')
+        self.adm.click_element('.tooltip-restrictions>li:nth-child(6)>a:nth-child(1)>span:nth-child(1)')
+        #self.adm.click_element('.tooltip-restrictions>li:nth-child(4)>a:nth-child(1)>span:nth-child(1)')
         time.sleep(2)
 
 
@@ -216,11 +229,17 @@ class Doctor:
 
         # Попытка нажать на кнопку меню управления данными пациента, если нет - стирание всех заполненных форм для поиска нового пациента
         try:
+            self.adm.fast = True
             self.adm.click_element('.btn-text-lg>span:nth-child(1)>svg:nth-child(1)')
 
         except Exception:
-            self.adm.click_element('li.active>a:nth-child(1)>span:nth-child(1)>svg:nth-child(1)')
-
+            #Переход на вкладку календаря для обнуления ввода нового пациента. Операция лишняя,
+            #т.к. любой ввод данніх очищает строку ввода.
+            #self.adm.click_element('li.active>a:nth-child(1)>span:nth-child(1)>svg:nth-child(1)')
+            self.adm.reset_element('div.col-xs-3:nth-child(1)>div:nth-child(1)>div:nth-child(1)>div:nth-child(2)>input:nth-child(1)')
+            self.adm.reset_element('div.form-group:nth-child(2)>div:nth-child(1)>div:nth-child(1)>div:nth-child(2)>input:nth-child(1)')
+            self.adm.reset_element('.input__maskedDate')
+            self.adm.fast = False
             print("Uncorrect data")
             # write data to specil file
             return False
@@ -282,7 +301,13 @@ class Doctor:
                         self.adm.check_exit_program()
 
                         date = self.adm.driver.find_element(By.CSS_SELECTOR,
-                                                   'div.col-md-12:nth-child(4) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1)')
+                                                   'div.col-md-2:nth-child(4)>div:nth-child(1)>div:nth-child(2)>div:nth-child(1)>div:nth-child(1)')
+                        """
+                        Time
+                        div.col-md-2:nth-child(4)>div:nth-child(1)>div:nth-child(2)>div:nth-child(1)>div:nth-child(1)
+                        ID of episode
+                        div.col-md-12:nth-child(4)>div:nth-child(1)>div:nth-child(1)>div:nth-child(2)>div:nth-child(1)>div:nth-child(1)
+                        """
                         create_episode = datetime.strptime(date.text[:10], '%d.%m.%Y')
                         print('create: ', create_episode)
                         print()
