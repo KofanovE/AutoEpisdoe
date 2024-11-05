@@ -35,6 +35,7 @@ class Administration:
         self.dead_time = self.current_date - timedelta(20)
         self.exit_flag = False
 
+
     def download_data(self):
         try:
             df_complete_episodes = pd.read_excel("Complete_Episodes.xlsx")
@@ -69,8 +70,8 @@ class Administration:
         "Загрузка браузера"
         options = webdriver.FirefoxOptions()
         options.headless = True
-        service = Service(executable_path='geckodriver_64.exe')
-        self.driver = webdriver.Firefox(service=service)
+        self.service = Service(executable_path='geckodriver_64.exe')
+        self.driver = webdriver.Firefox(service=self.service)
         self.driver.get("https://id.helsi.pro/")
         self.check_exit_program()
 
@@ -94,6 +95,7 @@ class Administration:
         WebDriverWait(self.driver, 60).until(EC.element_to_be_clickable((By.CSS_SELECTOR, element)))
         self.check_exit_program()
         line = self.driver.find_element(By.CSS_SELECTOR, element)
+        line.click()
         line.clear()
         line.click()
         line.send_keys(key)
@@ -172,7 +174,7 @@ class Doctor:
             self.adm.check_exit_program()
             second_name = row["Surname"]
             first_name = row["Name"]
-            timestamp_str = row["Birthday"].strftime("%dd-%mm-%YYYY")
+            timestamp_str = row["Birthday"].strftime("%d-%m-%Y")
             birthday_date = timestamp_str
             diagnosis = row["Diagnosis"]
             data_patients = [second_name, first_name, birthday_date, diagnosis]
@@ -193,14 +195,15 @@ class Doctor:
         print(data_patients)
 
         # Нажатие кнопки поиск пациента на боковой панели
-        self.adm.click_element('.tooltip-restrictions>li:nth-child(4)>a:nth-child(1)>span:nth-child(1)')
+        #self.adm.click_element('.tooltip-restrictions>li:nth-child(4)>a:nth-child(1)>span:nth-child(1)')
+
+        self.adm.click_element('.tooltip-restrictions>li:nth-child(6)>a:nth-child(1)>span:nth-child(1)')
 
         # Ввод фамилии пациента в строку фамилии
         self.adm.send_key_to_element('div.col-xs-3:nth-child(1)>div:nth-child(1)>div:nth-child(1)>div:nth-child(2)>input:nth-child(1)', second_name)
 
         #  Ввод имени пациента в строку имени
-        self.adm.send_key_to_element(
-            'div.form-group:nth-child(2)>div:nth-child(1)>div:nth-child(1)>div:nth-child(2)>input:nth-child(1)',
+        self.adm.send_key_to_element('div.form-group:nth-child(2)>div:nth-child(1)>div:nth-child(1)>div:nth-child(2)>input:nth-child(1)',
             first_name)
 
         # Ввод даты рождения пациента в строку даты рождения
@@ -209,6 +212,7 @@ class Doctor:
         # Нажатие кнопки поиск пациента после ввода данных во все формы
         self.adm.click_element('.margin-left-offset-20>button:nth-child(1)')
         print(3)
+
 
         # Попытка нажать на кнопку меню управления данными пациента, если нет - стирание всех заполненных форм для поиска нового пациента
         try:
@@ -319,7 +323,7 @@ class Doctor:
 
     def exit_episodes(self):
         "Выход из эпизода в список всех эпизодов"
-        4
+
         # Нажатие на кнопку Медична Картка
         self.adm.click_element('li.ant-menu-submenu:nth-child(4)>div:nth-child(1)>span:nth-child(1)')
 
