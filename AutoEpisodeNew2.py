@@ -16,8 +16,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import TimeoutException
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import gdown
+import json
 
 
 import os
@@ -31,10 +32,16 @@ import sys
 
 class Administration:
     def __init__(self):
-        self.current_date = datetime.now()
+        self.current_date = date.today()
         self.dead_time = self.current_date - timedelta(20)
         self.exit_flag = False
         self.fast = False # Флаг уменьшает время ожидания клакабельности єлемента с 60 до 10 секунд
+        self.date_json = None # Дата  с json файла
+        self.new_date_flag = False # Флаг показівает, что дата изменилась и нужно обновить окна врачей
+        self.date_path = "date_today.json"
+
+
+
 
 
     def download_data(self):
@@ -118,6 +125,49 @@ class Administration:
         line.click()
         line.clear()
 
+    def get_current_time(self, doc):
+        """
+        +Каждій запуск программі определяет текущую дату.
+        +Если есть текущая дата - она сравнивается с сегодня. Если сегодня больше текущей даті, сегодня становится новой
+         текущей датой и графики всех врачей обновляются.
+        Получение окон графика даного врача.
+        Определяется минимальное окно, если оно занято, берется последующее даного врача и так до момента,
+        когда окна врача и пациента не совпадут.
+        Когда окна совпадают, заносятся изменения в даній словарь окна даного врача на сегодня.
+        Последнее окно является временем открітия обследования в рамках даного єпизода.
+        """
+
+        """
+        Участок кода, которій считівает дату из json файла и сравнивает с текущей, после чего перезаписівает или 
+        оставляет текущую дату в файле.
+        """
+
+        current_date_str = str(self.current_date)
+
+        try:
+            with open(self.date_path, 'r') as file:
+                self.date_json = json.load(file)
+                print('Дата в файле ', self.date_json['date'])
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.date_json = {'date': None}
+
+        if self.date_json.get('date') != current_date_str:
+            print('Датьі не совпадают. Обновляем дату')
+            self.date_json['date'] = current_date_str
+
+            with open(file_path, 'w') as file:
+                json.dump(self.date_json, file, indent=4)
+            print("Файл обновлен")
+            self.new_date_flag = True
+
+
+
+
+
+
+
+
+
 
 
 
@@ -138,8 +188,20 @@ class Doctor:
         self.num = 0    # номер пациента в списке пациентов
         self.output = self.profession + ".xlsx"
         self.adm = adm
+        self.doc_today_path = 'doc_today.xlsx'
+        self.df_doc_today = pd.read_excel(self.doc_today_path)
 
 
+    def work_with_schedule(self):
+        """
+        Обнуление графика данного врача, если дата другая
+        :return:
+        """
+        if self.adm.new_date_flag:
+            # Обнуляем все окна докторов при новой дате
+            time_columns = self.df_doc_today.select_dtypes(include=['bool']).columns
+            self.df_doc_today[time_columns] = False
+            self.df_doc_today.to_excel(self.doc_today_path, index=False)
 
 
     def get_data(self):
@@ -314,10 +376,17 @@ class Doctor:
 
                         print(status_episode.text)
                         if status_episode.text == "Завершений":
+                            # В даном условии рассматривается вариант, что єпизод уже закріт.
+                            # !! Необходимо добавить проверку по времени, что б понимать, открівать ли новій єпизод
                             self.exit_episodes()
                             print('okey')
                         else:
+                            # При даном условии рассматривается вариант, что єпизод создан, но не закріт
                             open_episode = True
+
+                    else:
+                        # В даном условии рассматривается вариант, что єпизод не создан.
+                        # Далее следует создание єпизода.
 
                 i = i + 1
             if self.profession == 'Терапевт':
@@ -362,17 +431,7 @@ class Doctor:
         "Ввод данных по даному эпизоду"
         pass
 
-    def get_current_time(self):
-        """
-        Каждій запуск программі определяет текущую дату.
-        Если есть текущая дата - она сравнивается с сегодня. Если сегодня больше текущей даті, сегодня становится новой
-        текущей датой и графики всех врачей обновляются.
-        Получение окон графика даного врача.
-        Определяется минимальное окно, если оно занято, берется последующее даного врача и так до момента,
-        когда окна врача и пациента не совпадут.
-        Когда окна совпадают, заносятся изменения в даній словарь окна даного врача на сегодня.
-        Последнее окно является временем открітия обследования в рамках даного єпизода.
-        """
+
 
 
 class Terapevt(Doctor):
@@ -396,13 +455,13 @@ class Psyhyatr(Doctor):
 
 def main_logic():
     adm = Administration()
+
+    # Загрузка данньіх всег пациентов из главного файла
     adm.download_data()
+    # Загрузка браузера
     adm.download_browser()
 
-    current_date = datetime.now()
-    dead_time = current_date - timedelta(20)
-
-
+    # Перебор всех врачей из списка
     #doctors = ['Терапевт', 'Стоматолог', 'Офтальмолог', 'Невролог', 'ЛОР', 'Дерматолог', 'Хірург', 'Психіатр']
     doctors = ['Терапевт', 'ЛОР', 'Хірург', 'Психіатр']
     for doctor in doctors:
@@ -413,17 +472,25 @@ def main_logic():
         else:
             doc = Doctor(doctor, adm)
 
+        # Авторизация даного врача
         doc.authorization()
 
+        # Получения данньіх по пациентов от данного врача
         doc.get_data()
         if not doc.get_data():
             doc.exit_acc()
             time.sleep(2)
             continue
+
+        # Получение текущей датьі из файла и обновление ее
+        adm.get_current_time()
+        # Очистка графика врача при новой дате
+        doc.work_with_schedule()
         print(1)
+        # Работа с пациентами по списку
         doc.work_with_patients()
         print(5)
-
+        # Вьіход из аккаунта даного врача
         doc.exit_acc()
         time.sleep(2)
 
@@ -443,3 +510,4 @@ def main_logic():
 
 if __name__ == "__main__":
     main_logic()
+
