@@ -127,14 +127,10 @@ class Administration:
 
     def get_current_time(self, doc):
         """
-        +Каждій запуск программі определяет текущую дату.
-        +Если есть текущая дата - она сравнивается с сегодня. Если сегодня больше текущей даті, сегодня становится новой
-         текущей датой и графики всех врачей обновляются.
-        Получение окон графика даного врача.
-        Определяется минимальное окно, если оно занято, берется последующее даного врача и так до момента,
-        когда окна врача и пациента не совпадут.
-        Когда окна совпадают, заносятся изменения в даній словарь окна даного врача на сегодня.
-        Последнее окно является временем открітия обследования в рамках даного єпизода.
+        Каждьій запуск программі определяет текущую дату.
+        Если есть текущая дата - она сравнивается с сегодня. Если сегодня больше текущей даті, сегодня становится новой
+        текущей датой и графики всех врачей обновляются.
+
         """
 
         """
@@ -155,7 +151,7 @@ class Administration:
             print('Датьі не совпадают. Обновляем дату')
             self.date_json['date'] = current_date_str
 
-            with open(file_path, 'w') as file:
+            with open(self.date_path, 'w') as file:
                 json.dump(self.date_json, file, indent=4)
             print("Файл обновлен")
             self.new_date_flag = True
@@ -192,7 +188,7 @@ class Doctor:
         self.df_doc_today = pd.read_excel(self.doc_today_path)
 
 
-    def work_with_schedule(self):
+    def reset_doc_schedule(self):
         """
         Обнуление графика данного врача, если дата другая
         :return:
@@ -202,6 +198,14 @@ class Doctor:
             time_columns = self.df_doc_today.select_dtypes(include=['bool']).columns
             self.df_doc_today[time_columns] = False
             self.df_doc_today.to_excel(self.doc_today_path, index=False)
+
+    def work_with_schedule(self):
+        """
+        Функция осуществляет алгоритм подбора свободньіх окон докторов и пациентов.
+        В последующем будет использован дневной (или недельньій) график докторов.
+        :return:
+        """
+        pass
 
 
     def get_data(self):
@@ -387,6 +391,7 @@ class Doctor:
                     else:
                         # В даном условии рассматривается вариант, что єпизод не создан.
                         # Далее следует создание єпизода.
+                        pass
 
                 i = i + 1
             if self.profession == 'Терапевт':
@@ -485,7 +490,7 @@ def main_logic():
         # Получение текущей датьі из файла и обновление ее
         adm.get_current_time()
         # Очистка графика врача при новой дате
-        doc.work_with_schedule()
+        doc.reset_doc_schedule()
         print(1)
         # Работа с пациентами по списку
         doc.work_with_patients()
